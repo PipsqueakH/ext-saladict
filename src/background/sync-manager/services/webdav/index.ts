@@ -8,6 +8,7 @@ import {
 import {
   getNotebook,
   setNotebook,
+  replaceNotebook,
   setMeta,
   getMeta,
   notifyError
@@ -24,6 +25,13 @@ export interface SyncConfig extends SyncServiceConfigBase {
   readonly passwd: string
   /** In min */
   readonly duration: number
+  /**
+   * Mirror (full sync) mode. When enabled and a newer remote notebook is
+   * downloaded, local words absent from the remote are deleted so that the
+   * local notebook matches the remote exactly. Disabled by default to keep
+   * the merge-only behavior and avoid data loss.
+   */
+  readonly fullSync?: boolean
 }
 
 export interface SyncMeta {
@@ -40,7 +48,8 @@ export class Service extends SyncService<SyncConfig, SyncMeta> {
       url: '',
       user: '',
       passwd: '',
-      duration: 15
+      duration: 15,
+      fullSync: false
     }
   }
 
@@ -334,20 +343,28 @@ export class Service extends SyncService<SyncConfig, SyncMeta> {
     }
 
     const oldMeta = this.meta
-
-    if (!oldMeta.timestamp || json.timestamp >= oldMeta.timestamp) {
-      await this.setMeta({
-        timestamp: json.timestamp,
-        etag: response.headers.get('ETag') || oldMeta.etag || ''
-      })
+    const nextMeta = {
+      timestamp: json.timestamp,
+      etag: response.headers.get('ETag') || oldMeta.etag || ''
     }
 
     if (!noCache && oldMeta.timestamp && json.timestamp <= oldMeta.timestamp) {
       // older file
+      if (json.timestamp === oldMeta.timestamp) {
+        await this.setMeta(nextMeta)
+      }
       return
     }
 
-    await setNotebook(json.words)
+    if (config.fullSync) {
+      await replaceNotebook(json.words)
+    } else {
+      await setNotebook(json.words)
+    }
+
+    if (!oldMeta.timestamp || json.timestamp >= oldMeta.timestamp) {
+      await this.setMeta(nextMeta)
+    }
 
     if (process.env.DEBUG) {
       console.log('Webdav download', json)

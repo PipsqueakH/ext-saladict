@@ -64,7 +64,10 @@ export const WebdavModal: FC<WebdavModalProps> = props => {
     >
       <Form
         ref={formRef}
-        initialValues={props.syncConfig || Service.getDefaultConfig()}
+        initialValues={{
+          ...Service.getDefaultConfig(),
+          ...props.syncConfig
+        }}
         labelCol={{ span: 5 }}
         wrapperCol={{ span: 18 }}
         onFinish={saveService}
@@ -111,6 +114,14 @@ export const WebdavModal: FC<WebdavModalProps> = props => {
           ]}
         >
           <InputNumberGroup suffix={t('common:unit.mins')} />
+        </Form.Item>
+        <Form.Item
+          name="fullSync"
+          label={t('syncService.webdav.fullSync')}
+          extra={t('syncService.webdav.fullSync_help')}
+          valuePropName="checked"
+        >
+          <Switch />
         </Form.Item>
       </Form>
     </Modal>
@@ -165,7 +176,10 @@ export const WebdavModal: FC<WebdavModalProps> = props => {
         if (errorText !== 'exist') {
           throw error
         }
-        if (confirm(t('syncService.webdav.exist_confirm'))) {
+        const confirmKey = config.fullSync
+          ? 'syncService.webdav.exist_confirm_fullSync'
+          : 'syncService.webdav.exist_confirm'
+        if (confirm(t(confirmKey))) {
           await service.download({ noCache: true })
         }
       }
@@ -231,6 +245,7 @@ export const WebdavModal: FC<WebdavModalProps> = props => {
 
     return {
       ...values,
+      fullSync: !!values.fullSync,
       url:
         values.url && !values.url.endsWith('/')
           ? (values.url += '/')

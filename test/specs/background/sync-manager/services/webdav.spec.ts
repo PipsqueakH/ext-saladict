@@ -280,13 +280,14 @@ describe('Sync service WebDAV', () => {
       )
     })
 
-    it('should do nothing if etags are different but timestamps are identical', async () => {
+    it('should not mirror if etags differ but timestamps are identical', async () => {
       const config: SyncConfig = {
         enable: true,
         url: 'https://example.com/dav/',
         user: 'user',
         passwd: 'passwd',
-        duration: 0
+        duration: 0,
+        fullSync: true
       }
 
       const file: NotebookFile = {
@@ -324,6 +325,7 @@ describe('Sync service WebDAV', () => {
       await service.download({})
 
       expect(helpers.setNotebook).toHaveBeenCalledTimes(0)
+      expect(helpers.replaceNotebook).toHaveBeenCalledTimes(0)
       expect(helpers.setMeta).toHaveBeenCalledTimes(1)
       expect(fetchInit.download).toHaveBeenCalledTimes(1)
       expect(fetchInit.download).lastCalledWith(
@@ -463,6 +465,120 @@ describe('Sync service WebDAV', () => {
       expect(helpers.setMeta).toHaveBeenCalledTimes(0)
       expect(fetchInit.download).toHaveBeenCalledTimes(1)
       expect(fetchInit.download).lastCalledWith(...fetchArgs.download(config))
+    })
+
+    it('should replace the local notebook when fullSync is enabled', async () => {
+      const config: SyncConfig = {
+        enable: true,
+        url: 'https://example.com/dav/',
+        user: 'user',
+        passwd: 'passwd',
+        duration: 0,
+        fullSync: true
+      }
+
+      const remoteWords = [
+        getWord({ ...newWord({ text: 'shared' }), date: 200 }),
+        getWord({ ...newWord({ text: 'remote-new' }), date: 300 })
+      ]
+      const timestamp = Date.now()
+      const file: NotebookFile = { timestamp, words: remoteWords }
+      const etag = 'etag222'
+
+      const fetchInit = {
+        download: jest.fn(
+          () =>
+            new Response(JSON.stringify(file), {
+              headers: {
+                etag
+              }
+            })
+        )
+      }
+
+      mockFetch(config, fetchInit)
+
+      const service = new Service(config)
+
+      await service.download({})
+
+      expect(helpers.replaceNotebook).lastCalledWith(remoteWords)
+      expect(helpers.setNotebook).not.toHaveBeenCalled()
+      expect(helpers.setMeta).lastCalledWith('webdav', { timestamp, etag })
+    })
+
+    it('should clear the local notebook when fullSync downloads an empty notebook', async () => {
+      const config: SyncConfig = {
+        enable: true,
+        url: 'https://example.com/dav/',
+        user: 'user',
+        passwd: 'passwd',
+        duration: 0,
+        fullSync: true
+      }
+
+      const remoteWords: Word[] = []
+      const timestamp = Date.now()
+      const file: NotebookFile = { timestamp, words: remoteWords }
+      const etag = 'etag222'
+
+      const fetchInit = {
+        download: jest.fn(
+          () =>
+            new Response(JSON.stringify(file), {
+              headers: {
+                etag
+              }
+            })
+        )
+      }
+
+      mockFetch(config, fetchInit)
+
+      const service = new Service(config)
+
+      await service.download({})
+
+      expect(helpers.replaceNotebook).lastCalledWith([])
+      expect(helpers.setNotebook).not.toHaveBeenCalled()
+    })
+
+    it('should retain merge behavior when legacy config omits fullSync', async () => {
+      const config: SyncConfig = {
+        enable: true,
+        url: 'https://example.com/dav/',
+        user: 'user',
+        passwd: 'passwd',
+        duration: 0
+      }
+
+      const remoteWords = [
+        getWord({ ...newWord({ text: 'shared' }), date: 200 }),
+        getWord({ ...newWord({ text: 'remote-new' }), date: 300 })
+      ]
+      const timestamp = Date.now()
+      const file: NotebookFile = { timestamp, words: remoteWords }
+      const etag = 'etag222'
+
+      const fetchInit = {
+        download: jest.fn(
+          () =>
+            new Response(JSON.stringify(file), {
+              headers: {
+                etag
+              }
+            })
+        )
+      }
+
+      mockFetch(config, fetchInit)
+
+      const service = new Service(config)
+
+      await service.download({})
+
+      expect(helpers.setNotebook).lastCalledWith(remoteWords)
+      expect(helpers.replaceNotebook).not.toHaveBeenCalled()
     })
   })
 
