@@ -39,6 +39,51 @@ export interface SyncMeta {
   readonly timestamp?: number
 }
 
+/** Normalize a WebDAV URL so that trailing slashes do not affect identity. */
+export function normalizeWebdavUrl(url: string): string {
+  return (url || '').trim().replace(/\/+$/, '')
+}
+
+/**
+ * A sync target is identified by its normalized URL plus user. Changing only
+ * duration, password, enable or fullSync keeps the same target, while a new
+ * or changed URL/user is treated as a brand new target.
+ */
+export function getWebdavTargetId(
+  config: Pick<SyncConfig, 'url' | 'user'>
+): string {
+  return `${normalizeWebdavUrl(config.url)}\u0000${config.user || ''}`
+}
+
+export interface WebdavSaveDecision {
+  /** Whether the sync target (normalized URL + user) is new or changed. */
+  readonly isNewTarget: boolean
+  /** Whether a persisted timestamp baseline exists. */
+  readonly hasBaseline: boolean
+  /** Whether saving fullSync needs an explicit confirmation first. */
+  readonly needsFullSyncConfirm: boolean
+}
+
+/**
+ * Decide how to handle sync meta when saving a config: `isNewTarget` tells
+ * whether persisted meta belongs to a different target and must be reset,
+ * while `needsFullSyncConfirm` tells whether enabling fullSync requires an
+ * explicit confirmation because the next sync may replace or delete local
+ * words.
+ */
+export function getWebdavSaveDecision(args: {
+  next: Pick<SyncConfig, 'url' | 'user' | 'fullSync'>
+  prev?: Pick<SyncConfig, 'url' | 'user'>
+  meta?: SyncMeta
+}): WebdavSaveDecision {
+  const isNewTarget =
+    !args.prev || getWebdavTargetId(args.next) !== getWebdavTargetId(args.prev)
+  const hasBaseline = !!args.meta?.timestamp
+  const needsFullSyncConfirm =
+    !!args.next.fullSync && (isNewTarget || !hasBaseline)
+  return { isNewTarget, hasBaseline, needsFullSyncConfirm }
+}
+
 export class Service extends SyncService<SyncConfig, SyncMeta> {
   static readonly id = 'webdav'
 

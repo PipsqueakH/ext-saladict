@@ -325,6 +325,8 @@ export const locale: typeof _locale = {
       fullSync: 'Sincronización espejo',
       fullSync_help:
         'Cuando está activado, descargar un cuaderno remoto más reciente también elimina las palabras locales que no están en el remoto, para que el cuaderno local coincida exactamente. Desactivado por defecto (modo fusión) para evitar la pérdida de datos.',
+      fullSync_confirm:
+        'La sincronización espejo está activada. La próxima sincronización podría reemplazar el cuaderno local por el remoto y eliminar las palabras locales que no estén en el remoto. ¿Guardar de todos modos?',
       passwd: 'Contraseña',
       url: 'Dirección del servidor',
       user: 'Usuario'

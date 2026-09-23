@@ -321,6 +321,8 @@ export const locale: typeof _locale = {
       fullSync: 'Mirror sync',
       fullSync_help:
         'When enabled, downloading a newer remote notebook also deletes local words that are absent from the remote, so the local notebook matches the remote exactly. Disabled by default (merge mode) to avoid data loss.',
+      fullSync_confirm:
+        'Mirror sync is enabled. The next sync may replace the local notebook with the remote one and delete local words that are absent from the remote. Save anyway?',
       passwd: 'Password',
       url: 'Server Address',
       user: 'User Account'
